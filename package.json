@@ -20,6 +20,7 @@
   },
   "keywords": [
     "dns",
+    "dnssec",
     "lookup",
     "resolve4",
     "resolve6",
