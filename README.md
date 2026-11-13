@@ -35,10 +35,12 @@ only four threads by default and is shared with file system and crypto operation
 occupy those threads and everything else has to wait.
 See [Node.js DNS implementation considerations](https://nodejs.org/api/dns.html#implementation-considerations).
 
-`dns.lookup` also does not cache anything: every new connection asks the system resolver again.
+`dns.lookup` also does not cache anything: every new connection asks the system resolver again. And it gives no
+way to know if an answer is authentic.
 
 This package resolves hostnames over the network with `dns.resolve4` / `dns.resolve6`, which do not use the thread
-pool, and keeps the answers in memory until their DNS TTL runs out.
+pool, and keeps the answers in memory until their DNS TTL runs out. Since 2.1.0 it can also validate the answers
+with [DNSSEC](#dnssec).
 
 [back to top](#table-of-contents)
 
@@ -94,6 +96,19 @@ const net = require('node:net');
 const {lookup} = require('bragi-ns-client');
 
 const socket = net.connect({host: 'example.com', port: 80, lookup});
+```
+
+With [DNSSEC](#dnssec) validation, so a forged DNS answer cannot redirect the connection:
+
+```js
+const https = require('node:https');
+const {createLookup} = require('bragi-ns-client');
+
+const lookup = createLookup({dnssec: 'validate'});
+
+https.get('https://example.com', {lookup}, response => {
+    // ...
+});
 ```
 
 Or call it directly:
@@ -347,7 +362,10 @@ createLookup({dnssec: 'validate'})('dnssec-failed.org', 4, console.log);
   sending its own.
 - Without `family` the `A` and `AAAA` queries run in parallel. With `{all: true}` the result is one flat array,
   IPv4 addresses first. Otherwise an IPv4 address is returned, or an IPv6 address if the host has no IPv4 ones.
-- The cache lives in memory of the current process and is shared by everything that imports the package.
+- The cache lives in memory of the current process and is shared by everything that imports the package. Every
+  function made with `createLookup` has a cache of its own.
+- With [DNSSEC](#dnssec) the package sends the queries by itself instead of calling `dns.resolve4` / `dns.resolve6`,
+  and validates the answers before they get into the cache. Everything else works the same way.
 
 [back to top](#table-of-contents)
 
